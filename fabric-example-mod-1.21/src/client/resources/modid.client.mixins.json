@@ -1,0 +1,9 @@
+{
+	"required": false,
+	"package": "com.pickaxeability.notification.mixin.client",
+	"compatibilityLevel": "JAVA_21",
+	"client": [],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

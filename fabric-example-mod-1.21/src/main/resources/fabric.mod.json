@@ -1,0 +1,26 @@
+{
+	"schemaVersion": 1,
+	"id": "pickaxeabilitynotification",
+	"version": "${version}",
+	"name": "Pickaxe Ability Notification",
+	"description": "Shows a loud title and pling sound when chat says Hello World!",
+	"authors": [
+		"You"
+	],
+	"contact": {},
+	"license": "CC0-1.0",
+	"icon": "assets/pickaxeabilitynotification/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"com.pickaxeability.notification.PickaxeAbilityNotificationClient"
+		]
+	},
+	"mixins": [],
+	"depends": {
+		"fabricloader": ">=0.16.10",
+		"minecraft": "~1.21.5",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
