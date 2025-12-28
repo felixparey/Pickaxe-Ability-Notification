@@ -1,6 +1,7 @@
 package com.pickaxeability.notification;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -22,7 +23,6 @@ public class PickaxeAbilityNotificationClient implements ClientModInitializer {
 		"Mining Speed Boost"
 	};
 
-	private static final Component TITLE = Component.literal("PICKAXE ABILITY READY!");
 	private static final int TITLE_FADE_IN = 5; // ticks
 	private static final int TITLE_STAY = 60;   // ticks (3s at 20 TPS)
 	private static final int TITLE_FADE_OUT = 5; // ticks
@@ -30,6 +30,11 @@ public class PickaxeAbilityNotificationClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		LOGGER.info("Pickaxe Ability Notification mod initialized!");
+
+		// Register commands
+		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
+			NotificationCommand.register(dispatcher, registryAccess);
+		});
 
 		// Listen to GAME messages (catches system/server messages)
 		ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
@@ -49,6 +54,11 @@ public class PickaxeAbilityNotificationClient implements ClientModInitializer {
 	}
 
 	private void checkAndTrigger(String messageText) {
+		// Check if notifications are enabled
+		if (!NotificationConfig.isEnabled()) {
+			return;
+		}
+
 		// Remove all whitespace and compare
 		String normalizedMessage = messageText.replaceAll("\\s+", " ").trim();
 		LOGGER.info("Normalized message: '{}'", normalizedMessage);
@@ -75,7 +85,9 @@ public class PickaxeAbilityNotificationClient implements ClientModInitializer {
 	private void triggerNotification() {
 		Minecraft client = Minecraft.getInstance();
 		if (client.gui != null) {
-			client.gui.setTitle(TITLE);
+			// Create title with configured color
+			Component title = Component.literal("PICKAXE ABILITY READY!").withStyle(NotificationConfig.getTextColor());
+			client.gui.setTitle(title);
 			client.gui.setTimes(TITLE_FADE_IN, TITLE_STAY, TITLE_FADE_OUT);
 		}
 
