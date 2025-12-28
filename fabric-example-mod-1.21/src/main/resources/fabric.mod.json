@@ -3,9 +3,9 @@
 	"id": "pickaxeabilitynotification",
 	"version": "${version}",
 	"name": "Pickaxe Ability Notification",
-	"description": "Shows a loud title and pling sound when chat says Hello World!",
+	"description": "Shows a loud title and pling sound when mining abilities are ready",
 	"authors": [
-		"You"
+		"felixparey"
 	],
 	"contact": {},
 	"license": "CC0-1.0",
@@ -18,8 +18,8 @@
 	},
 	"mixins": [],
 	"depends": {
-		"fabricloader": ">=0.16.10",
-		"minecraft": "~1.21.5",
+		"fabricloader": ">=0.16.0",
+		"minecraft": ">=1.21 <1.22",
 		"java": ">=21",
 		"fabric-api": "*"
 	}

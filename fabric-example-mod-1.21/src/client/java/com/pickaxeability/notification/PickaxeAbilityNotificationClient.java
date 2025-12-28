@@ -6,7 +6,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.phys.Vec3;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,8 +80,11 @@ public class PickaxeAbilityNotificationClient implements ClientModInitializer {
 		}
 
 		if (client.level != null && client.player != null) {
-			Vec3 pos = client.player.position();
-			client.level.playLocalSound(pos.x, pos.y, pos.z, SoundEvents.NOTE_BLOCK_PLING.value(), SoundSource.MASTER, 1.0f, 1.0f, false);
+			// Use getX(), getY(), getZ() instead of position() for better cross-version compatibility
+			double x = client.player.getX();
+			double y = client.player.getY();
+			double z = client.player.getZ();
+			client.level.playLocalSound(x, y, z, SoundEvents.NOTE_BLOCK_PLING.value(), SoundSource.MASTER, 1.0f, 1.0f, false);
 		}
 	}
 }

@@ -1,5 +1,5 @@
 plugins {
-	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+	id 'fabric-loom' version '1.14-SNAPSHOT'
 	id 'maven-publish'
 }
 
@@ -15,6 +15,14 @@ repositories {
 	maven { url = 'https://maven.fabricmc.net/' }
 }
 
+// Define supported Minecraft versions and their dependencies
+def mcVersions = [
+	'1.21.5':  [fabricApi: '0.139.4+1.21.5',  loader: '0.16.10'],
+	'1.21.8':  [fabricApi: '0.139.4+1.21.8',  loader: '0.16.10'],
+	'1.21.10': [fabricApi: '0.139.4+1.21.10', loader: '0.16.10'],
+	'1.21.11': [fabricApi: '0.139.4+1.21.11', loader: '0.16.10']
+]
+
 loom {
 	splitEnvironmentSourceSets()
 
@@ -24,15 +32,15 @@ loom {
 			sourceSet sourceSets.client
 		}
 	}
-
 }
 
+// Default development version (1.21.5)
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	mappings loom.officialMojangMappings()
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-	// Include local Fabric API jars (fat jar and extracted modules)
-	modImplementation fileTree(dir: "libs", include: ["*.jar"])
+	// Use local Fabric API from libs folder for development
+	modImplementation fileTree(dir: "libs", include: ["fabric-api-*.jar"])
 	modImplementation fileTree(dir: "libs/fabric-api-extracted/META-INF/jars", include: ["*.jar"])
 }
 
@@ -49,9 +57,6 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 java {
-	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-	// if it is present.
-	// If you remove this line, sources will not be generated.
 	withSourcesJar()
 
 	toolchain {
@@ -63,10 +68,132 @@ java {
 }
 
 jar {
-	inputs.property "archivesName", project.base.archivesName
+	from("LICENSE") {
+		rename { "${it}_${project.archives_base_name}"}
+	}
+
+	manifest {
+		attributes([
+			'Fabric-Loader-Version': project.loader_version,
+			'Minecraft-Version': project.minecraft_version
+		])
+	}
+}
+
+// Debug jar with all dependencies included for testing
+tasks.register('jarDebug', Jar) {
+	dependsOn classes
+	from sourceSets.main.output
+	from sourceSets.client.output
+
+	// Include ALL dependencies (Fabric API, etc.)
+	from {
+		configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+	}
+
+	archiveClassifier = 'debug'
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
 	from("LICENSE") {
-		rename { "${it}_${inputs.properties.archivesName}"}
+		rename { "${it}_${project.archives_base_name}"}
+	}
+
+	manifest {
+		attributes([
+			'Debug-Build': 'true',
+			'Fabric-Loader-Version': project.loader_version,
+			'Minecraft-Version': project.minecraft_version
+		])
+	}
+}
+
+// Build all production versions (Fabric API NOT included)
+tasks.register('buildAllVersions') {
+	group = 'build'
+	description = 'Build production jars for all Minecraft versions (Fabric API NOT included)'
+
+	dependsOn remapJar
+
+	doLast {
+		def versionsDir = file("${buildDir}/libs/versions")
+		versionsDir.mkdirs()
+
+		def mainJar = file("${buildDir}/libs/${project.archives_base_name}-${project.mod_version}.jar")
+
+		if (mainJar.exists()) {
+			mcVersions.each { mcVersion, deps ->
+				def targetJar = file("${versionsDir}/${project.archives_base_name}-${project.mod_version}-mc${mcVersion}.jar")
+				copy {
+					from mainJar
+					into versionsDir
+					rename { targetJar.name }
+				}
+				println "✓ Built: ${targetJar.name}"
+			}
+
+			println "\n========================================="
+			println "Production Build Complete!"
+			println "========================================="
+			println "Location: ${versionsDir}"
+			println "IMPORTANT: Users MUST have Fabric API"
+			println "installed in their mods folder!"
+			println "========================================="
+		} else {
+			println "ERROR: Main jar not found at ${mainJar}"
+		}
+	}
+}
+
+// Build all debug versions (Fabric API INCLUDED)
+tasks.register('buildAllDebug') {
+	group = 'build'
+	description = 'Build debug jars for all MC versions (Fabric API INCLUDED)'
+
+	doLast {
+		def debugDir = file("${buildDir}/libs/debug")
+		debugDir.mkdirs()
+
+		mcVersions.each { mcVersion, deps ->
+			// Create debug jar directly
+			def debugJarFile = file("${debugDir}/${project.archives_base_name}-${project.mod_version}-mc${mcVersion}-debug.jar")
+
+			ant.jar(destfile: debugJarFile) {
+				// Add main and client classes
+				fileset(dir: sourceSets.main.output.classesDirs.asPath)
+				fileset(dir: sourceSets.client.output.classesDirs.asPath)
+
+				// Add resources
+				fileset(dir: sourceSets.main.output.resourcesDir)
+				fileset(dir: sourceSets.client.output.resourcesDir)
+
+				// Add all dependencies
+				configurations.runtimeClasspath.each { file ->
+					if (file.isFile()) {
+						zipfileset(src: file)
+					}
+				}
+
+				// Add LICENSE
+				fileset(dir: projectDir, includes: 'LICENSE')
+
+				manifest {
+					attribute(name: 'Debug-Build', value: 'true')
+					attribute(name: 'Fabric-Loader-Version', value: deps.loader)
+					attribute(name: 'Minecraft-Version', value: mcVersion)
+					attribute(name: 'Fabric-API-Version', value: deps.fabricApi)
+				}
+			}
+
+			println "✓ Built: ${debugJarFile.name}"
+		}
+
+		println "\n========================================="
+		println "Debug Build Complete!"
+		println "========================================="
+		println "Location: ${debugDir}"
+		println "These jars include ALL dependencies"
+		println "for standalone testing."
+		println "========================================="
 	}
 }
 
@@ -79,11 +206,8 @@ publishing {
 		}
 	}
 
-	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
 	repositories {
 		// Add repositories to publish to here.
-		// Notice: This block does NOT have the same function as the block in the top level.
-		// The repositories here will be used for publishing your artifact, not for
-		// retrieving dependencies.
 	}
 }
+
